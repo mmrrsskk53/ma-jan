@@ -1,0 +1,1933 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>四人麻雀 — オンライン対戦</title>
+<style>
+/* ============================================================
+ *  共通変数・リセット
+ * ============================================================ */
+:root{
+  --felt:#0d4d3c;--gold:#c9a24b;--gold-bright:#e6c878;
+  --ivory:#f3ead4;--ivory-edge:#d9cba8;--ink:#1a1a1a;--red:#b8312f;
+  --wood:#2a1d12;--panel:#14241d;--bg:#04140f;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+  background:radial-gradient(ellipse at 50% 30%,#1a3a2e,#08251c 70%,var(--bg));
+  color:var(--ivory);user-select:none;touch-action:manipulation;}
+button{font-family:inherit;cursor:pointer;}
+input{font-family:inherit;}
+
+/* ============================================================
+ *  画面共通
+ * ============================================================ */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:20px;
+  padding:20px;overflow-y:auto;}
+.screen.hidden{display:none;}
+.card{background:linear-gradient(160deg,#16352a,#0a2118);
+  border:1px solid rgba(201,162,75,.4);border-radius:16px;
+  padding:28px 32px;width:100%;max-width:420px;
+  box-shadow:0 12px 40px rgba(0,0,0,.5);}
+.card h2{color:var(--gold-bright);font-size:22px;letter-spacing:.15em;
+  margin-bottom:20px;text-align:center;font-weight:700;}
+.card h3{color:var(--gold);font-size:15px;letter-spacing:.1em;
+  margin-bottom:12px;font-weight:600;}
+
+/* タイトル */
+#screen-title h1{font-size:clamp(32px,8vw,60px);letter-spacing:.2em;
+  background:linear-gradient(180deg,var(--gold-bright),var(--gold) 60%,#8a6c2a);
+  -webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700;}
+#screen-title .sub{color:#9fb8a8;letter-spacing:.4em;font-size:13px;margin-top:-8px;}
+#screen-title .solo-link{font-size:12px;color:#7d9488;margin-top:8px;}
+#screen-title .solo-link a{color:var(--gold);text-decoration:none;}
+
+/* 入力フォーム */
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:13px;color:#9fb8a8;margin-bottom:6px;letter-spacing:.05em;}
+.field input,.field select{width:100%;padding:12px 14px;border-radius:8px;
+  border:1px solid rgba(201,162,75,.35);background:rgba(0,0,0,.3);
+  color:var(--ivory);font-size:15px;outline:none;transition:.2s;}
+.field input:focus,.field select:focus{border-color:var(--gold-bright);}
+.field select option{background:#0a2118;}
+
+/* ボタン */
+.btn{width:100%;padding:14px;border-radius:10px;border:1.5px solid var(--gold);
+  background:linear-gradient(180deg,#a8332f,#7d2320);color:#fff;
+  font-size:16px;font-weight:700;letter-spacing:.12em;transition:.18s;}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.1);}
+.btn:active{transform:scale(.97);}
+.btn.secondary{background:linear-gradient(180deg,#1c3d30,#123026);}
+.btn.green{background:linear-gradient(180deg,#1a7a4a,#0f5030);}
+.btn.small{padding:9px 18px;font-size:13px;width:auto;border-radius:7px;}
+.btn-row{display:flex;gap:10px;margin-top:8px;}
+
+/* ============================================================
+ *  ロビー
+ * ============================================================ */
+#screen-lobby .card{max-width:500px;}
+.room-id-box{display:flex;align-items:center;gap:10px;
+  background:rgba(0,0,0,.35);border:1px solid rgba(201,162,75,.3);
+  border-radius:10px;padding:12px 16px;margin-bottom:20px;}
+.room-id-box .label{font-size:12px;color:#9fb8a8;letter-spacing:.1em;}
+.room-id-box .id{font-size:28px;font-weight:700;color:var(--gold-bright);
+  letter-spacing:.25em;flex:1;}
+.copy-btn{padding:6px 12px;border-radius:6px;border:1px solid var(--gold);
+  background:rgba(201,162,75,.15);color:var(--gold);font-size:12px;}
+.copy-btn:hover{background:rgba(201,162,75,.3);}
+.player-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.player-slot{display:flex;align-items:center;gap:12px;
+  padding:10px 14px;border-radius:8px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.06);}
+.player-slot.filled{border-color:rgba(201,162,75,.3);}
+.player-slot.me{border-color:var(--gold-bright);background:rgba(201,162,75,.08);}
+.slot-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:13px;font-weight:700;background:var(--red);color:#fff;}
+.slot-name{flex:1;font-size:15px;color:#cfe3d8;}
+.slot-name.ai{color:#7d9488;font-style:italic;}
+.slot-badge{font-size:11px;padding:2px 8px;border-radius:10px;
+  background:rgba(201,162,75,.2);color:var(--gold);letter-spacing:.05em;}
+.host-settings{border-top:1px solid rgba(255,255,255,.08);padding-top:16px;margin-top:4px;}
+.settings-row{display:flex;gap:10px;margin-bottom:12px;}
+.settings-row .field{flex:1;margin-bottom:0;}
+.waiting-msg{text-align:center;font-size:13px;color:#9fb8a8;margin-top:8px;}
+
+/* ============================================================
+ *  対局画面
+ * ============================================================ */
+#screen-game{position:fixed;inset:0;display:none;flex-direction:row;}
+#screen-game.active{display:flex;}
+#left-panel{width:62px;background:linear-gradient(180deg,rgba(8,28,22,.95),rgba(6,20,16,.95));
+  border-right:1px solid rgba(201,162,75,.15);display:flex;flex-direction:column;
+  align-items:center;padding:10px 0;gap:8px;z-index:46;flex:none;}
+.left-btn{width:46px;height:46px;border-radius:10px;border:1px solid rgba(201,162,75,.4);
+  background:linear-gradient(180deg,#1c3d30,#123026);color:var(--gold-bright);
+  font-size:18px;display:flex;align-items:center;justify-content:center;flex:none;}
+.left-btn:hover{background:linear-gradient(180deg,#27543f,#1a4030);}
+#sound-btn{font-size:18px;}
+
+/* 卓エリア */
+#table-area{position:relative;flex:1;display:flex;align-items:center;justify-content:center;}
+#table-wrap-outer{position:relative;
+  width:min(calc(100vw - 62px),170vh);
+  height:min(92vh,57vw);}
+
+/* 卓内 */
+#table-wrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:80%;height:82%;background:
+    repeating-linear-gradient(45deg,#0e5040 0 3px,#0d4b3c 3px 6px),
+    linear-gradient(160deg,#0f5443,#0a3a2d);
+  border:min(1.4vw,12px) solid var(--wood);border-radius:18px;
+  box-shadow:0 0 0 min(.4vw,3px) var(--gold) inset,0 20px 60px rgba(0,0,0,.6);}
+
+/* 台外 点数パネル */
+.pinfo{position:absolute;z-index:7;
+  background:rgba(8,28,22,.93);border:1.5px solid rgba(201,162,75,.4);
+  border-top:3px solid var(--owner-color,#c9a24b);
+  border-radius:10px;padding:6px 12px;text-align:center;min-width:90px;}
+.pinfo .nm-row{display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:2px;}
+.pinfo .wind{display:inline-flex;width:20px;height:20px;border-radius:50%;
+  background:var(--red);color:#fff;font-size:12px;
+  align-items:center;justify-content:center;flex:none;}
+.pinfo .nm{font-size:13px;color:#cfe3d8;}
+.pinfo .sc{font-size:16px;font-weight:700;color:var(--gold-bright);
+  font-family:"Yu Gothic",sans-serif;}
+.pinfo.active{border-color:var(--gold-bright);
+  box-shadow:0 0 12px rgba(230,200,120,.5);}
+.pinfo.riichi{border-color:var(--red);}
+#pinfo0{bottom:9%;right:1%;} #pinfo1{top:1%;right:1%;}
+#pinfo2{top:1%;left:1%;} #pinfo3{bottom:9%;left:1%;}
+
+/* 上部バー */
+#info-bar{position:absolute;top:1vh;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:14px;z-index:46;
+  background:linear-gradient(160deg,rgba(10,44,34,.95),rgba(6,29,22,.95));
+  border:1px solid var(--gold);border-radius:12px;padding:7px 20px;
+  white-space:nowrap;}
+#info-bar .round{font-size:22px;color:var(--gold-bright);letter-spacing:.08em;font-weight:700;}
+#info-bar .remain{font-size:14px;color:#9fb8a8;}
+#info-bar .dora-label{font-size:13px;color:var(--gold);}
+#info-bar .dora-mini{display:flex;gap:3px;}
+#info-bar .dora-mini .tile{width:26px;height:36px;}
+#info-bar .dora-mini .tile .num{font-size:18px;}
+#info-bar .dora-mini .tile .suit{font-size:11px;}
+#info-bar .dora-mini .tile .honor-char{font-size:20px;}
+#info-bar .sticks{font-size:13px;color:var(--gold);}
+
+/* 牌 */
+.tile{background:linear-gradient(170deg,#fdfaf0,#e8dcc0);
+  border:1px solid var(--ivory-edge);border-radius:4px;
+  box-shadow:0 1px 2px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.7);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;color:var(--ink);overflow:hidden;flex:none;line-height:1;}
+.tile.back{background:linear-gradient(170deg,#2c6e54,#1d5240);border-color:#15402f;}
+.tile .face{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;width:100%;height:100%;gap:0;}
+.tile .num{line-height:.95;} .tile .suit{line-height:1;margin-top:.08em;}
+.tile.pin .suit{color:#1b5fa8;} .tile.sou .suit{color:#1a7a3a;}
+.tile.honor.green{color:#1a7a3a;} .tile.honor.red{color:var(--red);}
+
+/* 手牌 */
+#my-hand{position:absolute;bottom:1.5%;left:50%;transform:translateX(-50%);
+  display:flex;gap:.4%;z-index:20;align-items:flex-end;}
+.opp-hand{position:absolute;display:flex;z-index:8;}
+#opp1{right:1.5%;top:50%;transform:translateY(-50%);flex-direction:column;gap:.3%;}
+#opp2{top:1.5%;left:50%;transform:translateX(-50%);flex-direction:row;gap:.3%;}
+#opp3{left:1.5%;top:50%;transform:translateY(-50%);flex-direction:column;gap:.3%;}
+
+/* 河 */
+.river{position:absolute;display:grid;gap:.25%;z-index:5;
+  grid-template-columns:repeat(6,auto);grid-auto-rows:auto;}
+#river0{bottom:18%;left:50%;transform:translateX(-50%);}
+#river2{top:18%;left:50%;transform:translateX(-50%) rotate(180deg);}
+#river1{right:18%;top:50%;transform:translateY(-50%) rotate(-90deg);}
+#river3{left:18%;top:50%;transform:translateY(-50%) rotate(90deg);}
+.river .tile.called{opacity:.35;}
+.river .tile.riichi-discard{transform:rotate(90deg);}
+
+/* 鳴き */
+.melds{position:absolute;display:flex;gap:1%;z-index:9;flex-wrap:wrap;}
+#melds0{bottom:10%;right:.5%;justify-content:flex-end;max-width:18%;}
+#melds1{top:10%;right:.5%;justify-content:flex-end;max-width:18%;}
+#melds2{top:10%;left:.5%;max-width:18%;}
+#melds3{bottom:10%;left:.5%;max-width:18%;}
+.melds .meld{display:flex;align-items:center;padding:.3%;border-radius:.6%;
+  border:.25% solid var(--owner-color);box-shadow:0 0 1% var(--owner-color);
+  background:rgba(0,0,0,.25);}
+.melds .meld .called-tile{border-bottom:.4% solid var(--owner-color);}
+.melds .meld .claimed-tile{background:linear-gradient(170deg,#fff3c4,#f0d878);
+  box-shadow:0 0 4px var(--gold-bright);border-color:var(--gold-bright);}
+
+/* 操作ボタン */
+#actions{position:absolute;bottom:12%;left:50%;transform:translateX(-50%);
+  display:flex;gap:1.5%;z-index:30;}
+.act-btn{padding:1.5% 2.8%;border-radius:20px;border:2px solid var(--gold);
+  background:linear-gradient(180deg,#a8332f,#7d2320);color:#fff;
+  font-size:2.8%;font-weight:700;letter-spacing:.1em;
+  box-shadow:0 .5% 1.5% rgba(0,0,0,.5);transition:.15s;}
+.act-btn:active{transform:scale(.94);}
+.act-btn.sub{background:linear-gradient(180deg,#1f4636,#143228);}
+.act-btn.skip{background:linear-gradient(180deg,#3a3a3a,#262626);border-color:#666;}
+.act-btn.btn-tsumo{background:linear-gradient(180deg,#d4a017,#a87f0a);border-color:#ffe08a;}
+.act-btn.btn-ron{background:linear-gradient(180deg,#c0392b,#922b21);border-color:#ff8a7a;}
+.act-btn.btn-pon{background:linear-gradient(180deg,#2e6da4,#1f4e7a);border-color:#7ab8e6;}
+.act-btn.btn-chi{background:linear-gradient(180deg,#2e8b57,#1e6b3f);border-color:#7ae6a0;}
+.act-btn.btn-kan{background:linear-gradient(180deg,#7d3c98,#5b2c6f);border-color:#c89ae6;}
+.act-btn.btn-riichi{background:linear-gradient(180deg,#1f4636,#143226);border-color:var(--gold-bright);}
+
+/* トースト */
+#toast{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);
+  z-index:60;font-size:12%;font-weight:700;color:var(--gold-bright);
+  text-shadow:0 0 4% rgba(230,200,120,.6);opacity:0;pointer-events:none;}
+#toast.show{opacity:1;animation:pop .5s;}
+@keyframes pop{0%{transform:translate(-50%,-50%) scale(.4);}
+  60%{transform:translate(-50%,-50%) scale(1.15);}
+  100%{transform:translate(-50%,-50%) scale(1);}}
+
+/* ============================================================
+ *  結果オーバーレイ
+ * ============================================================ */
+#overlay{position:absolute;inset:0;z-index:100;display:none;
+  align-items:center;justify-content:center;background:rgba(2,12,8,.82);}
+#overlay.show{display:flex;}
+.result-card{background:linear-gradient(165deg,#16352a,#0a2118);
+  border:2px solid var(--gold);border-radius:16px;padding:24px 28px;
+  min-width:300px;max-width:90vw;max-height:85vh;overflow-y:auto;text-align:center;}
+.result-card h2{color:var(--gold-bright);font-size:22px;letter-spacing:.12em;margin-bottom:4px;}
+.result-card .winner-name{color:#cfe3d8;font-size:14px;margin-bottom:12px;}
+.yaku-list{text-align:left;margin:12px 0;
+  border-top:1px solid rgba(201,162,75,.3);border-bottom:1px solid rgba(201,162,75,.3);
+  padding:8px 0;}
+.yaku-row{display:flex;justify-content:space-between;font-size:13px;padding:2px 0;color:#e3ead8;}
+.yaku-row .han{color:var(--gold-bright);}
+.result-score{font-size:28px;color:var(--gold-bright);font-weight:700;margin:8px 0;
+  font-family:"Yu Gothic",sans-serif;}
+.result-hanfu{font-size:13px;color:#9fb8a8;margin-bottom:12px;}
+.next-btn{padding:12px 32px;border-radius:24px;border:2px solid var(--gold);
+  background:linear-gradient(180deg,#a8332f,#7d2320);color:#fff;
+  font-size:16px;font-weight:700;letter-spacing:.12em;margin-top:8px;}
+
+/* ============================================================
+ *  点数推移テーブル（リアルタイム更新）
+ * ============================================================ */
+#score-table{position:fixed;bottom:0;right:0;z-index:50;
+  background:linear-gradient(160deg,rgba(14,40,30,.97),rgba(8,26,20,.97));
+  border:1px solid rgba(201,162,75,.4);border-radius:12px 0 0 0;
+  padding:10px 14px;min-width:220px;display:none;}
+#score-table.show{display:block;}
+#score-table h4{font-size:12px;color:var(--gold);letter-spacing:.1em;margin-bottom:8px;}
+.score-table-row{display:flex;gap:8px;font-size:12px;padding:3px 0;
+  border-bottom:1px solid rgba(255,255,255,.05);}
+.score-table-row .stn{flex:1;color:#cfe3d8;}
+.score-table-row .stv{color:var(--gold-bright);font-weight:700;
+  font-family:"Yu Gothic",sans-serif;text-align:right;}
+
+/* ============================================================
+ *  最終結果画面
+ * ============================================================ */
+#screen-result .card{max-width:500px;}
+.rank-row{display:flex;align-items:center;padding:12px 16px;margin:6px 0;
+  border-radius:10px;background:rgba(255,255,255,.04);}
+.rank-row.rank-1{background:linear-gradient(90deg,rgba(201,162,75,.25),transparent);
+  border:1px solid var(--gold);}
+.rank-row .rk{color:var(--gold-bright);font-weight:700;width:40px;font-size:18px;}
+.rank-row .rnm{flex:1;font-size:16px;color:#e3ead8;}
+.rank-row .rsc{color:var(--gold-bright);font-weight:700;font-size:18px;
+  font-family:"Yu Gothic",sans-serif;}
+
+/* ローディング */
+.loading{text-align:center;color:#9fb8a8;font-size:14px;padding:20px;}
+.spinner{width:32px;height:32px;border:3px solid rgba(201,162,75,.3);
+  border-top-color:var(--gold);border-radius:50%;
+  animation:spin .8s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* エラー表示 */
+.error-msg{color:#e57373;font-size:13px;text-align:center;
+  padding:8px;background:rgba(184,49,47,.15);border-radius:6px;margin-top:8px;}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     タイトル画面
+     ============================================================ -->
+<div id="screen-title" class="screen">
+  <h1>四 人 麻 雀</h1>
+  <div class="sub">オ ン ラ イ ン 対 戦</div>
+
+  <div class="card">
+    <h2>はじめに</h2>
+    <div class="field">
+      <label>ニックネーム</label>
+      <input id="nickname-input" type="text" maxlength="10" placeholder="例: 道徳">
+    </div>
+    <div class="btn-row">
+      <button class="btn green" id="create-room-btn">ルームを作る</button>
+      <button class="btn secondary" id="join-room-btn">ルームに参加</button>
+    </div>
+    <div id="join-area" style="display:none;margin-top:16px;">
+      <div class="field">
+        <label>ルームID（6桁）</label>
+        <input id="room-id-input" type="text" maxlength="7" placeholder="ABC-123" style="text-transform:uppercase;letter-spacing:.2em;font-size:18px;">
+      </div>
+      <button class="btn" id="do-join-btn">参加する</button>
+    </div>
+    <div id="title-error" class="error-msg" style="display:none;"></div>
+
+  </div>
+  <div class="solo-link">シングルプレイは <a href="mahjong.html">こちら</a></div>
+</div>
+
+
+<!-- ============================================================
+     ロビー画面
+     ============================================================ -->
+<div id="screen-lobby" class="screen hidden">
+  <div class="card">
+    <h2 id="lobby-title">ロビー</h2>
+
+    <!-- ルームID表示 -->
+    <div class="room-id-box">
+      <div>
+        <div class="label">ルームID</div>
+        <div class="id" id="display-room-id">---</div>
+      </div>
+      <button class="copy-btn" id="copy-room-id">コピー</button>
+    </div>
+
+    <!-- プレイヤーリスト -->
+    <h3>参加者</h3>
+    <div class="player-list" id="player-list"></div>
+
+    <!-- ホスト専用設定 -->
+    <div class="host-settings" id="host-settings" style="display:none;">
+      <h3>ゲーム設定</h3>
+      <div class="settings-row">
+        <div class="field">
+          <label>対局形式</label>
+          <select id="mode-select">
+            <option value="tonpuu">東風戦</option>
+            <option value="hanchan">半荘戦</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>自動開始人数</label>
+          <select id="auto-start-count">
+            <option value="0">手動のみ</option>
+            <option value="2">2人で開始</option>
+            <option value="3">3人で開始</option>
+            <option value="4" selected>4人で開始</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn green" id="start-game-btn">ゲームを開始する</button>
+    </div>
+
+    <div class="waiting-msg" id="waiting-msg">ホストの開始を待っています...</div>
+    <button class="btn secondary" id="leave-lobby-btn" style="margin-top:12px;">退出</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     対局画面
+     ============================================================ -->
+<div id="screen-game">
+  <!-- 左端ボタン -->
+  <div id="left-panel">
+    <button class="left-btn" id="leave-game-btn" title="退出">✕</button>
+    <button class="left-btn" id="sound-btn">🔊</button>
+  </div>
+
+  <!-- 卓エリア -->
+  <div id="table-area">
+    <div id="table-wrap-outer">
+      <!-- 台外 点数パネル -->
+      <div class="pinfo" id="pinfo0"><div class="nm-row"><span class="wind"></span><span class="nm"></span></div><span class="sc"></span></div>
+      <div class="pinfo" id="pinfo1"><div class="nm-row"><span class="wind"></span><span class="nm"></span></div><span class="sc"></span></div>
+      <div class="pinfo" id="pinfo2"><div class="nm-row"><span class="wind"></span><span class="nm"></span></div><span class="sc"></span></div>
+      <div class="pinfo" id="pinfo3"><div class="nm-row"><span class="wind"></span><span class="nm"></span></div><span class="sc"></span></div>
+      <!-- 台外 鳴き -->
+      <div class="melds" id="melds0"></div>
+      <div class="melds" id="melds1"></div>
+      <div class="melds" id="melds2"></div>
+      <div class="melds" id="melds3"></div>
+
+      <!-- 卓本体 -->
+      <div id="table-wrap">
+        <span class="net-badge" style="position:absolute;top:8px;right:12px;z-index:40;font-size:11px;color:#7d9488;letter-spacing:.1em;">ONLINE</span>
+        <!-- 相手牌 -->
+        <div class="opp-hand" id="opp1"></div>
+        <div class="opp-hand" id="opp2"></div>
+        <div class="opp-hand" id="opp3"></div>
+        <!-- 河 -->
+        <div class="river" id="river0"></div>
+        <div class="river" id="river1"></div>
+        <div class="river" id="river2"></div>
+        <div class="river" id="river3"></div>
+        <!-- 自分の手牌 -->
+        <div id="my-hand"></div>
+        <!-- 操作ボタン -->
+        <div id="actions"></div>
+        <!-- トースト -->
+        <div id="toast"></div>
+      </div>
+
+      <!-- 上部情報バー -->
+      <div id="info-bar">
+        <span class="round" id="round-name">東1局</span>
+        <span class="remain" id="remain">残70</span>
+        <span class="dora-label">ドラ</span>
+        <div class="dora-mini" id="dora-mini"></div>
+        <span class="sticks" id="sticks"></span>
+      </div>
+
+      <!-- 結果オーバーレイ -->
+      <div id="overlay">
+        <div class="result-card" id="result-card"></div>
+      </div>
+    </div>
+
+    <!-- 点数推移テーブル -->
+    <div id="score-table">
+      <h4>点数推移</h4>
+      <div id="score-table-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     最終結果画面
+     ============================================================ -->
+<div id="screen-result" class="screen hidden">
+  <div class="card">
+    <h2>最終結果</h2>
+    <div id="final-ranking"></div>
+    <div class="btn-row" style="margin-top:16px;">
+      <button class="btn green" id="rematch-btn">再戦</button>
+      <button class="btn secondary" id="to-lobby-btn">ロビーへ</button>
+      <button class="btn secondary" id="to-title-btn">タイトルへ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     JavaScript
+     ============================================================ -->
+<script type="module">
+// ============================================================
+//  Firebase SDK (CDN)
+// ============================================================
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, get, update, onValue, push, off, remove }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+// ============================================================
+//  麻雀エンジン（シングル版から流用・インライン）
+// ============================================================
+</script>
+<script>
+// engine.js の内容をここに挿入（ビルド時に置換）
+// MAHJONG_ENGINE_PLACEHOLDER
+</script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, get, update, onValue, push, off, remove, onDisconnect }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+// ============================================================
+//  状態管理
+// ============================================================
+let db = null;
+let myUid = null;        // このブラウザのUID
+let myPid = null;        // 座席番号 0-3
+let roomId = null;
+let isHost = false;
+let nickname = '';
+let gameState = null;    // Firebaseから受信した最新ゲーム状態
+let localGame = null;    // ホスト用ローカルゲームオブジェクト
+let busy = false;
+let soundEnabled = true;
+
+const $ = s => document.querySelector(s);
+const el = (t,c) => { const e = document.createElement(t); if(c) e.className=c; return e; };
+
+// ============================================================
+//  Firebase 初期化
+// ============================================================
+// ============================================================
+//  Firebase設定 ← ここを自分の値に書き換えてください///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ============================================================
+const firebaseConfig = {
+  //apiKey:            "YOUR_API_KEY",
+ // authDomain:        "YOUR_AUTH_DOMAIN",
+  //databaseURL:       "YOUR_DATABASE_URL",
+  //projectId:         "YOUR_PROJECT_ID",
+  //storageBucket:     "YOUR_STORAGE_BUCKET",
+  //messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  //appId:             "YOUR_APP_ID"
+  apiKey: "AIzaSyCEuC8E5_4QfudbLDczbRq6187imcDA50c",
+  authDomain: "kawayomi-c20d3.firebaseapp.com",
+  databaseURL: "https://kawayomi-c20d3-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "kawayomi-c20d3",
+  storageBucket: "kawayomi-c20d3.firebasestorage.app",
+  messagingSenderId: "614828494414",
+  appId: "1:614828494414:web:034ca0bc31e4b0055e7d1f"
+};
+
+function initFirebase() {
+  try {
+    const app = initializeApp(firebaseConfig);
+    db = getDatabase(app);
+    return true;
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    return false;
+  }
+}
+
+// ============================================================
+//  UID生成（匿名）
+// ============================================================
+function getOrCreateUid() {
+  let uid = sessionStorage.getItem('mahjong_uid');
+  if(!uid) {
+    uid = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    sessionStorage.setItem('mahjong_uid', uid);
+  }
+  return uid;
+}
+
+// ============================================================
+//  ルームID生成（ABC-123形式）
+// ============================================================
+function generateRoomId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const nums = '23456789';
+  let r = '';
+  for(let i=0;i<3;i++) r += chars[Math.floor(Math.random()*chars.length)];
+  r += '-';
+  for(let i=0;i<3;i++) r += nums[Math.floor(Math.random()*nums.length)];
+  return r;
+}
+
+// ============================================================
+//  画面切替
+// ============================================================
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  $('#screen-game').classList.remove('active');
+  const target = $('#screen-'+name);
+  if(target) {
+    target.classList.remove('hidden');
+  }
+  if(name === 'game') {
+    $('#screen-game').classList.add('active');
+  }
+}
+
+// ============================================================
+//  効果音
+// ============================================================
+const Sound = (() => {
+  let ctx = null;
+  function ac() {
+    if(!ctx) try { ctx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e) {}
+    return ctx;
+  }
+  function tap() {
+    if(!soundEnabled) return;
+    const c=ac(); if(!c) return;
+    const t=c.currentTime;
+    const o=c.createOscillator(); o.type='triangle'; o.frequency.setValueAtTime(420,t);
+    o.frequency.exponentialRampToValueAtTime(180,t+0.05);
+    const g=c.createGain(); g.gain.setValueAtTime(0.25,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.08);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+0.1);
+  }
+  function win() {
+    if(!soundEnabled) return;
+    const c=ac(); if(!c) return;
+    const t=c.currentTime;
+    [523,659,784,1047].forEach((f,i)=>{
+      const o=c.createOscillator(); o.type='triangle'; o.frequency.value=f;
+      const g=c.createGain(); g.gain.setValueAtTime(0.001,t+i*.1);
+      g.gain.exponentialRampToValueAtTime(0.2,t+i*.1+.02);
+      g.gain.exponentialRampToValueAtTime(0.001,t+i*.1+.4);
+      o.connect(g); g.connect(c.destination); o.start(t+i*.1); o.stop(t+i*.1+.45);
+    });
+  }
+  function call() {
+    if(!soundEnabled) return;
+    const c=ac(); if(!c) return;
+    const t=c.currentTime;
+    [0,.09].forEach((dt,i)=>{
+      const o=c.createOscillator(); o.type='square'; o.frequency.setValueAtTime(i?520:390,t+dt);
+      const g=c.createGain(); g.gain.setValueAtTime(0.001,t+dt);
+      g.gain.exponentialRampToValueAtTime(0.12,t+dt+.01);
+      g.gain.exponentialRampToValueAtTime(0.001,t+dt+.12);
+      o.connect(g); g.connect(c.destination); o.start(t+dt); o.stop(t+dt+.14);
+    });
+  }
+  function riichi() {
+    if(!soundEnabled) return;
+    const c=ac(); if(!c) return;
+    const t=c.currentTime;
+    const o=c.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(880,t);
+    o.frequency.exponentialRampToValueAtTime(440,t+.4);
+    const g=c.createGain(); g.gain.setValueAtTime(0.001,t);
+    g.gain.exponentialRampToValueAtTime(0.18,t+.02); g.gain.exponentialRampToValueAtTime(0.001,t+.5);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+.55);
+  }
+  function resume() { if(ctx && ctx.state==='suspended') ctx.resume(); }
+  return { tap, win, call, riichi, resume };
+})();
+
+// ============================================================
+//  牌描画
+// ============================================================
+const SUIT_CLASS = ['man','pin','sou'];
+const TILE_NAMES_JP = (() => {
+  const a = [];
+  for(let i=1;i<=9;i++) a.push(i+'萬');
+  for(let i=1;i<=9;i++) a.push(i+'筒');
+  for(let i=1;i<=9;i++) a.push(i+'索');
+  a.push('東','南','西','北','白','發','中');
+  return a;
+})();
+const HONOR = 27;
+
+function tileEl(tile, faceDown, size) {
+  const e = el('div','tile');
+  const s = size || 'md';
+  // サイズはCSSで制御するためdata属性で渡す
+  e.dataset.size = s;
+  if(faceDown) { e.classList.add('back'); return e; }
+  const face = el('div','face');
+  if(tile < HONOR) {
+    const suitIdx = Math.floor(tile/9);
+    const num = (tile%9)+1;
+    e.classList.add(SUIT_CLASS[suitIdx]);
+    const n = el('div','num'); n.textContent = num;
+    const s2 = el('div','suit'); s2.textContent = ['萬','筒','索'][suitIdx];
+    face.appendChild(n); face.appendChild(s2);
+  } else {
+    const names = {27:'東',28:'南',29:'西',30:'北',31:'白',32:'發',33:'中'};
+    const n = el('div','num honor-char'); n.textContent = names[tile];
+    if(tile===32) e.classList.add('honor','green');
+    else if(tile===33) e.classList.add('honor','red');
+    else e.classList.add('honor');
+    face.appendChild(n);
+  }
+  e.appendChild(face);
+  return e;
+}
+
+// 卓サイズに合わせた牌サイズをパーセントで設定
+function applyTileSizes() {
+  const tw = $('#table-wrap');
+  if(!tw) return;
+  const W = tw.offsetWidth, H = tw.offsetHeight;
+  // 手牌: 幅6.5%Wが1枚の目安
+  const hw = W * 0.062, hh = H * 0.13;
+  document.querySelectorAll('#my-hand .tile').forEach(t => {
+    t.style.width = hw+'px'; t.style.height = hh+'px';
+    t.style.fontSize = (hh*0.6)+'px';
+  });
+  // 相手牌
+  const ow1 = H*0.08, oh1 = H*0.05;
+  document.querySelectorAll('#opp1 .tile,#opp3 .tile').forEach(t => {
+    t.style.width = ow1+'px'; t.style.height = oh1+'px';
+  });
+  document.querySelectorAll('#opp2 .tile').forEach(t => {
+    t.style.width = oh1+'px'; t.style.height = ow1+'px';
+  });
+  // 河
+  const rw = W*0.04, rh = H*0.065;
+  document.querySelectorAll('.river .tile').forEach(t => {
+    t.style.width = rw+'px'; t.style.height = rh+'px';
+    t.style.fontSize = (rh*0.55)+'px';
+  });
+  // 鳴き
+  const mw = W*0.032, mh = H*0.055;
+  document.querySelectorAll('.melds .tile').forEach(t => {
+    t.style.width = mw+'px'; t.style.height = mh+'px';
+    t.style.fontSize = (mh*0.5)+'px';
+  });
+  // ドラ
+  document.querySelectorAll('#dora-mini .tile').forEach(t => {
+    t.style.width = '26px'; t.style.height = '36px';
+    t.style.fontSize = '18px';
+  });
+}
+
+// ============================================================
+//  Firebase 操作ヘルパー
+// ============================================================
+function roomRef(path) {
+  return ref(db, `rooms/${roomId}${path?'/'+path:''}`);
+}
+
+// ============================================================
+//  ルーム作成
+// ============================================================
+async function createRoom() {
+  const name = $('#nickname-input').value.trim();
+  if(!name) { showError('title','ニックネームを入力してください'); return; }
+  if(!db) { showError('title','Firebase接続に失敗しました。firebaseConfigの値を確認してください'); return; }
+
+  myUid = getOrCreateUid();
+  nickname = name;
+  roomId = generateRoomId();
+  isHost = true;
+  myPid = 0;
+
+  const mode = 'tonpuu'; // デフォルト（ロビーで変更可）
+  const roomData = {
+    info: { host: myUid, mode, status: 'waiting', createdAt: Date.now() },
+    players: {
+      0: { uid: myUid, name: nickname, isAI: false, ready: true },
+      1: { uid: 'ai1', name: 'AI下家', isAI: true, ready: true },
+      2: { uid: 'ai2', name: 'AI対面', isAI: true, ready: true },
+      3: { uid: 'ai3', name: 'AI上家', isAI: true, ready: true },
+    }
+  };
+
+  try {
+    await set(roomRef(''), roomData);
+    showLobby();
+  } catch(e) {
+    showError('title', 'ルーム作成に失敗しました: ' + e.message);
+  }
+}
+
+// ============================================================
+//  ルーム参加
+// ============================================================
+async function joinRoom() {
+  const name = $('#nickname-input').value.trim();
+  const rid = $('#room-id-input').value.trim().toUpperCase();
+  if(!name) { showError('title','ニックネームを入力してください'); return; }
+  if(!rid) { showError('title','ルームIDを入力してください'); return; }
+  if(!db) { showError('title','Firebase接続に失敗しました。firebaseConfigの値を確認してください'); return; }
+
+  myUid = getOrCreateUid();
+  nickname = name;
+  roomId = rid;
+  isHost = false;
+
+  try {
+    const snap = await get(roomRef(''));
+    if(!snap.exists()) {
+      showError('title', 'ルームが見つかりません');
+      return;
+    }
+    const room = snap.val();
+    if(room.info.status !== 'waiting') {
+      showError('title', 'このルームはすでに対局中です');
+      return;
+    }
+    // 空き席を探す
+    const players = room.players || {};
+    let seat = -1;
+    for(let i=1;i<=3;i++) {
+      if(players[i] && players[i].isAI) { seat = i; break; }
+    }
+    if(seat < 0) { showError('title', 'ルームが満員です'); return; }
+
+    myPid = seat;
+    await update(roomRef('players/'+seat), {
+      uid: myUid, name: nickname, isAI: false, ready: true
+    });
+    showLobby();
+  } catch(e) {
+    showError('title', '参加に失敗しました: ' + e.message);
+  }
+}
+
+// ============================================================
+//  ロビー表示
+// ============================================================
+function showLobby() {
+  showScreen('lobby');
+  $('#display-room-id').textContent = roomId;
+  $('#host-settings').style.display = isHost ? 'block' : 'none';
+  $('#waiting-msg').style.display = isHost ? 'none' : 'block';
+  $('#start-game-btn').style.display = isHost ? 'block' : 'none';
+
+  // プレイヤーリストをリアルタイム監視
+  onValue(roomRef('players'), snap => {
+    if(!snap.exists()) return;
+    renderPlayerList(snap.val());
+  });
+
+  // ゲーム開始を監視
+  onValue(roomRef('info/status'), snap => {
+    if(snap.val() === 'playing') {
+      startGame();
+    }
+  });
+}
+
+function renderPlayerList(players) {
+  const list = $('#player-list');
+  list.innerHTML = '';
+  const windCh = ['東','南','西','北'];
+  for(let i=0;i<4;i++) {
+    const p = players[i];
+    const slot = el('div','player-slot'+(p&&!p.isAI?' filled':'')+(i===myPid?' me':''));
+    const num = el('div','slot-num'); num.textContent = windCh[i];
+    const name = el('div','slot-name'+(p&&p.isAI?' ai':''));
+    name.textContent = p ? p.name : '待機中...';
+    slot.appendChild(num); slot.appendChild(name);
+    if(p && players[0] && p.uid === players[0].uid) {
+      const badge = el('span','slot-badge'); badge.textContent = 'ホスト';
+      slot.appendChild(badge);
+    }
+    if(i === myPid) {
+      const badge = el('span','slot-badge'); badge.textContent = 'あなた';
+      slot.appendChild(badge);
+    }
+    list.appendChild(slot);
+  }
+}
+
+// ============================================================
+//  ゲーム開始（ホスト側）
+// ============================================================
+async function startGame() {
+  Sound.resume();
+  off(roomRef('players'));
+  off(roomRef('info/status'));
+
+  if(isHost) {
+    await initHostGame();
+  } else {
+    initClientGame();
+  }
+  showScreen('game');
+  window.addEventListener('resize', applyTileSizes);
+}
+
+// ホスト: ゲームロジックを実行してFirebaseに書き込む
+async function initHostGame() {
+  const snap = await get(roomRef(''));
+  const room = snap.val();
+  const mode = room.info.mode || 'tonpuu';
+  const players = room.players;
+
+  // ゲーム状態を初期化してFirebaseに書き込む
+  const wall = MJ.buildWall();
+  const deadWall = wall.splice(wall.length-14, 14);
+  const doraIndicators = [deadWall[4]];
+  const hands = {};
+  let pos = 0;
+  for(let i=0;i<4;i++) {
+    hands[i] = [];
+    for(let j=0;j<13;j++) hands[i].push(wall[pos++]);
+    hands[i].sort((a,b)=>a-b);
+  }
+
+  const initState = {
+    mode,
+    roundWind: 27, // 東
+    kyoku: 1,
+    honba: 0,
+    riichiSticks: 0,
+    dealer: 0,
+    wallPos: pos,
+    wall: wall,
+    deadWall: deadWall,
+    doraIndicators,
+    kanCount: 0,
+    turn: 0,
+    phase: 'discard', // 親はツモ済みでdiscardから
+    scores: { 0:25000, 1:25000, 2:25000, 3:25000 },
+    hands,
+    discards: { 0:[], 1:[], 2:[], 3:[] },
+    melds: { 0:[], 1:[], 2:[], 3:[] },
+    riichi: { 0:false, 1:false, 2:false, 3:false },
+    ippatsu: { 0:false, 1:false, 2:false, 3:false },
+    drawnTile: { 0: wall[pos-1], 1:null, 2:null, 3:null }, // 親はツモ済み
+    lastDiscard: null,
+    event: null,
+  };
+
+  await set(roomRef('state'), initState);
+  await update(roomRef('info'), { status: 'playing' });
+
+  // 状態監視開始
+  listenToState();
+  // AI手番を処理
+  processAITurns();
+}
+
+// 参加者: Firebaseを監視して画面更新
+function initClientGame() {
+  listenToState();
+}
+
+// ============================================================
+//  Firebase 状態監視
+// ============================================================
+let stateListener = null;
+let actionListener = null;
+
+function listenToState() {
+  stateListener = onValue(roomRef('state'), snap => {
+    if(!snap.exists()) return;
+    gameState = snap.val();
+    renderGame();
+    // 自分の手番チェック
+    if(gameState.phase === 'discard' && gameState.turn === myPid && !busy) {
+      showMyTurnUI();
+    }
+    // 点数更新
+    updateScoreTable();
+  });
+
+  // アクション受信（ホストのみ処理）
+  if(isHost) {
+    actionListener = onValue(roomRef('actions'), snap => {
+      if(!snap.exists()) return;
+      const actions = snap.val();
+      for(const key in actions) {
+        const action = actions[key];
+        if(!action.processed) {
+          processAction(action, key);
+        }
+      }
+    });
+  }
+}
+
+// ============================================================
+//  アクション送信（参加者→ホスト）
+// ============================================================
+async function sendAction(type, data) {
+  const actionRef = ref(db, `rooms/${roomId}/actions`);
+  await push(actionRef, {
+    type,
+    pid: myPid,
+    data: data || {},
+    ts: Date.now(),
+    processed: false,
+  });
+}
+
+// ============================================================
+//  アクション処理（ホスト）
+// ============================================================
+async function processAction(action, key) {
+  // 処理済みマーク
+  await update(ref(db, `rooms/${roomId}/actions/${key}`), { processed: true });
+
+  const state = gameState;
+  if(!state) return;
+
+  switch(action.type) {
+    case 'discard':
+      await hostDiscard(action.pid, action.data.tile);
+      break;
+    case 'pon':
+      await hostPon(action.pid, action.data.tile);
+      break;
+    case 'chi':
+      await hostChi(action.pid, action.data.tile, action.data.seq);
+      break;
+    case 'kan_min':
+      await hostKanMin(action.pid, action.data.tile);
+      break;
+    case 'ankan':
+      await hostAnkan(action.pid, action.data.tile);
+      break;
+    case 'riichi':
+      await hostRiichi(action.pid);
+      break;
+    case 'tsumo':
+      await hostTsumo(action.pid);
+      break;
+    case 'ron':
+      await hostRon(action.pid);
+      break;
+    case 'skip':
+      await hostSkip(action.pid);
+      break;
+    case 'proceed':
+      await hostProceed();
+      break;
+  }
+}
+
+// ============================================================
+//  ホスト: ゲームロジック実行
+// ============================================================
+
+// 打牌
+async function hostDiscard(pid, tile) {
+  const state = JSON.parse(JSON.stringify(gameState));
+  if(state.phase !== 'discard' || state.turn !== pid) return;
+
+  const hand = state.hands[pid];
+  const idx = hand.indexOf(tile);
+  if(idx < 0) return;
+  hand.splice(idx,1);
+  hand.sort((a,b)=>a-b);
+  state.hands[pid] = hand;
+  state.discards[pid].push({ tile, riichi: state.riichi[pid] });
+  state.drawnTile[pid] = null;
+  state.lastDiscard = { tile, pid };
+  state.ippatsu[pid] = false;
+
+  // 鳴き・ロン判定
+  const claims = gatherClaims(state, pid, tile);
+  if(hasValidClaims(claims)) {
+    state.phase = 'claim';
+    state.pendingClaims = claims;
+    state.claimDeadline = Date.now() + 8000; // 8秒以内に反応
+    await set(roomRef('state'), state);
+    // AI鳴き判定
+    await setTimeout2(1500, async () => {
+      await resolveAIClaims(state, pid, tile, claims);
+    });
+  } else {
+    // 次のツモ
+    await advanceTurn(state, pid);
+  }
+}
+
+function gatherClaims(state, fromPid, tile) {
+  const res = { ron: [], pon: [], kan: [], chi: [] };
+  for(let i=0;i<4;i++) {
+    if(i===fromPid) continue;
+    const hand = state.hands[i];
+    const melds = state.melds[i] || [];
+    const meldN = melds.length;
+    // ロン
+    const testHand = [...hand, tile];
+    if(MJ.isAgari(testHand, meldN)) {
+      const ctx = buildScoreCtx(state, i, tile, false);
+      const r = MJ.prepareScore(ctx);
+      if(r) {
+        if(!isFuriten(state, i, tile)) {
+          res.ron.push({ pid: i, result: r });
+        }
+      }
+    }
+    if(state.riichi[i]) continue;
+    const counts = MJ.toCounts(hand);
+    if(counts[tile] >= 2) res.pon.push({ pid: i, tile });
+    if(counts[tile] >= 3) res.kan.push({ pid: i, tile });
+    // チー
+    if(i === (fromPid+1)%4 && tile < HONOR) {
+      const n = tile%9, base = Math.floor(tile/9)*9;
+      const seqs = [];
+      if(n>=2 && counts[base+n-2]>0 && counts[base+n-1]>0) seqs.push([base+n-2,base+n-1]);
+      if(n>=1&&n<=7 && counts[base+n-1]>0 && counts[base+n+1]>0) seqs.push([base+n-1,base+n+1]);
+      if(n<=6 && counts[base+n+1]>0 && counts[base+n+2]>0) seqs.push([base+n+1,base+n+2]);
+      if(seqs.length) res.chi.push({ pid: i, tile, seqs });
+    }
+  }
+  return res;
+}
+
+function hasValidClaims(claims) {
+  return claims.ron.length>0 || claims.pon.length>0 ||
+         claims.kan.length>0 || claims.chi.length>0;
+}
+
+function isFuriten(state, pid, ronTile) {
+  const waits = MJ.waits(state.hands[pid], (state.melds[pid]||[]).length);
+  return (state.discards[pid]||[]).some(d => waits.includes(d.tile));
+}
+
+async function resolveAIClaims(state, fromPid, tile, claims) {
+  const ron = claims.ron.slice().sort((a,b)=>((a.pid-fromPid+4)%4)-((b.pid-fromPid+4)%4));
+  if(ron.length) {
+    const aiRon = ron.find(r => state.players && state.players[r.pid] && state.players[r.pid].isAI);
+    if(aiRon) { await hostRonForPid(fromPid, aiRon.pid, aiRon.result); return; }
+  }
+  // AI鳴き
+  for(const x of claims.pon) {
+    const pSnap = await get(roomRef('players/'+x.pid));
+    if(pSnap.val()&&pSnap.val().isAI && MJAI.shouldClaim_simple(tile)) {
+      await hostPonForPid(x.pid, tile, fromPid); return;
+    }
+  }
+  // 誰もアクションしない→次へ
+  const freshSnap = await get(roomRef('state'));
+  const freshState = freshSnap.val();
+  if(freshState && freshState.phase === 'claim') {
+    await advanceTurn(freshState, fromPid);
+  }
+}
+
+async function advanceTurn(state, fromPid) {
+  const st = JSON.parse(JSON.stringify(state));
+  const next = (fromPid+1)%4;
+  if(st.wall.length <= st.wallPos) {
+    await ryuukyoku(st);
+    return;
+  }
+  const tile = st.wall[st.wallPos++];
+  st.hands[next] = [...st.hands[next], tile].sort((a,b)=>a-b);
+  st.drawnTile[next] = tile;
+  st.turn = next;
+  st.phase = 'discard';
+  st.pendingClaims = null;
+
+  // ツモ和了チェック
+  const canTsumo = checkTsumo(st, next, tile);
+  st.canTsumo = canTsumo;
+
+  await set(roomRef('state'), st);
+
+  // AI処理
+  const pSnap = await get(roomRef('players/'+next));
+  if(pSnap.val()&&pSnap.val().isAI) {
+    await setTimeout2(600, () => processAISeat(st, next));
+  }
+}
+
+function checkTsumo(state, pid, drawnTile) {
+  if(!MJ.isAgari(state.hands[pid], (state.melds[pid]||[]).length)) return false;
+  const ctx = buildScoreCtx(state, pid, drawnTile, true);
+  return !!MJ.prepareScore(ctx);
+}
+
+async function processAISeat(state, pid) {
+  // ツモ和了
+  if(state.canTsumo && state.turn === pid) {
+    await hostTsumoForPid(state, pid);
+    return;
+  }
+  // リーチ判断
+  const melds = state.melds[pid]||[];
+  const menzen = melds.every(m=>m.type==='ankan');
+  if(menzen && !state.riichi[pid] && state.scores[pid]>=1000 && MJ.isTenpai(state.hands[pid], melds.length)) {
+    const waits = MJ.waits(state.hands[pid], melds.length);
+    if(waits.length > 0 && (state.wall.length - state.wallPos) >= 4) {
+      await hostRiichiForPid(state, pid);
+    }
+  }
+  // 打牌選択
+  const tile = MJAI.chooseDiscardSimple(state.hands[pid], state.melds[pid]||[], state.riichi[pid]);
+  await hostDiscard(pid, tile);
+}
+
+function processAITurns() {
+  // ゲーム開始時に親(pid=0)が最初にAIの場合は処理
+  const playersSnap_check = async () => {
+    const pSnap = await get(roomRef('players/0'));
+    if(pSnap.val()&&pSnap.val().isAI) {
+      await setTimeout2(800, async () => {
+        const sSnap = await get(roomRef('state'));
+        if(sSnap.exists()) {
+          await processAISeat(sSnap.val(), 0);
+        }
+      });
+    }
+  };
+  playersSnap_check();
+}
+
+async function hostPon(pid, tile) {
+  const state = JSON.parse(JSON.stringify(gameState));
+  const fromPid = state.lastDiscard.pid;
+  removeFromHand(state.hands[pid], tile, 2);
+  state.melds[pid].push({ type:'pon', tiles:[tile,tile,tile], from:fromPid, calledTile:tile });
+  markLastDiscardCalled(state, fromPid);
+  clearIppatsu(state);
+  state.turn = pid; state.phase = 'discard'; state.pendingClaims = null;
+  await set(roomRef('state'), state);
+}
+
+async function hostPonForPid(pid, tile, fromPid) {
+  const sSnap = await get(roomRef('state'));
+  const state = JSON.parse(JSON.stringify(sSnap.val()));
+  removeFromHand(state.hands[pid], tile, 2);
+  state.melds[pid].push({ type:'pon', tiles:[tile,tile,tile], from:fromPid, calledTile:tile });
+  markLastDiscardCalled(state, fromPid);
+  clearIppatsu(state);
+  state.turn = pid; state.phase = 'discard'; state.pendingClaims = null;
+  Sound.call();
+  await set(roomRef('state'), state);
+  // AI打牌
+  await setTimeout2(600, () => processAISeat(state, pid));
+}
+
+async function hostChi(pid, tile, seq) {
+  const sSnap = await get(roomRef('state'));
+  const state = JSON.parse(JSON.stringify(sSnap.val()));
+  const fromPid = state.lastDiscard.pid;
+  for(const t of seq) removeFromHand(state.hands[pid], t, 1);
+  const tiles = [tile,...seq].sort((a,b)=>a-b);
+  state.melds[pid].push({ type:'chi', tiles, from:fromPid, calledTile:tile });
+  markLastDiscardCalled(state, fromPid);
+  clearIppatsu(state);
+  state.turn = pid; state.phase = 'discard'; state.pendingClaims = null;
+  Sound.call();
+  await set(roomRef('state'), state);
+}
+
+async function hostRiichiForPid(state, pid) {
+  const st = JSON.parse(JSON.stringify(state));
+  st.riichi[pid] = true;
+  st.ippatsu[pid] = true;
+  st.scores[pid] -= 1000;
+  st.riichiSticks = (st.riichiSticks||0)+1;
+  await set(roomRef('state'), st);
+  Sound.riichi();
+}
+
+async function hostRiichi(pid) {
+  const sSnap = await get(roomRef('state'));
+  const state = JSON.parse(JSON.stringify(sSnap.val()));
+  if(!MJ.isTenpai(state.hands[pid],(state.melds[pid]||[]).length)) return;
+  state.riichi[pid] = true;
+  state.ippatsu[pid] = true;
+  state.scores[pid] -= 1000;
+  state.riichiSticks = (state.riichiSticks||0)+1;
+  await set(roomRef('state'), state);
+  Sound.riichi();
+}
+
+async function hostTsumo(pid) {
+  const sSnap = await get(roomRef('state'));
+  const state = JSON.parse(JSON.stringify(sSnap.val()));
+  await hostTsumoForPid(state, pid);
+}
+
+async function hostTsumoForPid(state, pid) {
+  const ctx = buildScoreCtx(state, pid, state.drawnTile[pid], true);
+  const r = MJ.prepareScore(ctx);
+  if(!r) return;
+  applyTsumoPayments(state, pid, r);
+  state.event = { type:'tsumo', pid, result:serializeResult(r) };
+  Sound.win();
+  await set(roomRef('state'), state);
+  await setTimeout2(3000, () => proceedNextKyoku(state));
+}
+
+async function hostRon(pid) {
+  const sSnap = await get(roomRef('state'));
+  const state = JSON.parse(JSON.stringify(sSnap.val()));
+  const fromPid = state.lastDiscard.pid;
+  await hostRonForPid(fromPid, pid, null);
+}
+
+async function hostRonForPid(fromPid, pid, preResult) {
+  const sSnap = await get(roomRef('state'));
+  const state = JSON.parse(JSON.stringify(sSnap.val()));
+  const tile = state.lastDiscard.tile;
+  const ctx = buildScoreCtx(state, pid, tile, false);
+  const r = preResult || MJ.prepareScore(ctx);
+  if(!r) return;
+  const pay = r.total + (state.honba||0)*300;
+  state.scores[fromPid] -= pay;
+  state.scores[pid] += pay + (state.riichiSticks||0)*1000;
+  state.riichiSticks = 0;
+  state.event = { type:'ron', pid, fromPid, result:serializeResult(r) };
+  Sound.win();
+  await set(roomRef('state'), state);
+  await setTimeout2(3000, () => proceedNextKyoku(state));
+}
+
+async function hostSkip(pid) {
+  // 自分のスキップを記録
+  const sSnap = await get(roomRef('state'));
+  const state = sSnap.val();
+  if(!state || state.phase !== 'claim') return;
+  // 全員スキップしたら次へ
+  const skips = state.claimSkips || {};
+  skips[pid] = true;
+  const humanPids = [];
+  const pSnap = await get(roomRef('players'));
+  const players = pSnap.val();
+  for(let i=0;i<4;i++) { if(players[i]&&!players[i].isAI) humanPids.push(i); }
+  const allSkipped = humanPids.every(p => skips[p]);
+  if(allSkipped) {
+    const st = JSON.parse(JSON.stringify(state));
+    await advanceTurn(st, st.lastDiscard.pid);
+  } else {
+    await update(roomRef('state/claimSkips'), skips);
+  }
+}
+
+async function hostKanMin(pid, tile) {
+  const sSnap = await get(roomRef('state'));
+  const state = JSON.parse(JSON.stringify(sSnap.val()));
+  const fromPid = state.lastDiscard.pid;
+  removeFromHand(state.hands[pid], tile, 3);
+  state.melds[pid].push({ type:'kan', tiles:[tile,tile,tile,tile], from:fromPid, calledTile:tile });
+  markLastDiscardCalled(state, fromPid);
+  clearIppatsu(state);
+  state.kanCount = (state.kanCount||0)+1;
+  revealNewDora(state);
+  // 嶺上ツモ
+  const rinshan = state.deadWall[state.deadWall.length-1-state.kanCount];
+  state.hands[pid] = [...state.hands[pid], rinshan].sort((a,b)=>a-b);
+  state.drawnTile[pid] = rinshan;
+  state.turn = pid; state.phase = 'discard';
+  await set(roomRef('state'), state);
+}
+
+async function hostAnkan(pid, tile) {
+  const sSnap = await get(roomRef('state'));
+  const state = JSON.parse(JSON.stringify(sSnap.val()));
+  removeFromHand(state.hands[pid], tile, 4);
+  state.melds[pid].push({ type:'ankan', tiles:[tile,tile,tile,tile] });
+  clearIppatsu(state);
+  state.kanCount = (state.kanCount||0)+1;
+  revealNewDora(state);
+  const rinshan = state.deadWall[state.deadWall.length-1-state.kanCount];
+  state.hands[pid] = [...state.hands[pid], rinshan].sort((a,b)=>a-b);
+  state.drawnTile[pid] = rinshan;
+  state.turn = pid; state.phase = 'discard';
+  await set(roomRef('state'), state);
+}
+
+function revealNewDora(state) {
+  const idx = 4 + (state.kanCount||0)*2;
+  if(idx < state.deadWall.length) {
+    state.doraIndicators.push(state.deadWall[idx]);
+  }
+}
+
+async function ryuukyoku(state) {
+  const st = JSON.parse(JSON.stringify(state));
+  const tenpai = [];
+  for(let i=0;i<4;i++) {
+    if(MJ.isTenpai(st.hands[i],(st.melds[i]||[]).length)) tenpai.push(i);
+  }
+  const noten = [0,1,2,3].filter(i=>!tenpai.includes(i));
+  if(tenpai.length>0&&tenpai.length<4) {
+    const get2 = 3000/tenpai.length;
+    const pay2 = 3000/noten.length;
+    tenpai.forEach(i=>st.scores[i]+=get2);
+    noten.forEach(i=>st.scores[i]-=pay2);
+  }
+  st.event = { type:'ryuukyoku', tenpai, noten };
+  await set(roomRef('state'), st);
+  await setTimeout2(3000, () => proceedNextKyoku(st));
+}
+
+async function proceedNextKyoku(prevState) {
+  const st = JSON.parse(JSON.stringify(prevState));
+  const ev = st.event;
+  const dealerWon = ev && (ev.type==='tsumo'||ev.type==='ron') && ev.pid===st.dealer;
+  const dealerTenpai = ev && ev.type==='ryuukyoku' && ev.tenpai && ev.tenpai.includes(st.dealer);
+  const renchan = dealerWon || dealerTenpai;
+
+  if(!renchan) {
+    st.honba = 0;
+    st.dealer = (st.dealer+1)%4;
+    st.kyoku++;
+    const maxKyoku = st.mode==='hanchan' ? 9 : 5;
+    if(st.kyoku > 4) {
+      if(st.mode==='hanchan' && st.roundWind===27) {
+        st.roundWind=28; st.kyoku=1;
+      } else {
+        // ゲーム終了
+        await endGame(st);
+        return;
+      }
+    }
+  } else {
+    st.honba = (st.honba||0)+1;
+  }
+
+  // 新しい局を始める
+  const wall = MJ.buildWall();
+  const deadWall = wall.splice(wall.length-14,14);
+  const doraIndicators = [deadWall[4]];
+  const hands = {};
+  let pos = 0;
+  for(let i=0;i<4;i++) {
+    hands[i]=[];
+    for(let j=0;j<13;j++) hands[i].push(wall[pos++]);
+    hands[i].sort((a,b)=>a-b);
+  }
+  // 親にツモ牌を渡す
+  const drawnForDealer = wall[pos++];
+  hands[st.dealer].push(drawnForDealer);
+  hands[st.dealer].sort((a,b)=>a-b);
+
+  st.wall = wall;
+  st.wallPos = pos;
+  st.deadWall = deadWall;
+  st.doraIndicators = doraIndicators;
+  st.kanCount = 0;
+  st.hands = hands;
+  st.discards = {0:[],1:[],2:[],3:[]};
+  st.melds = {0:[],1:[],2:[],3:[]};
+  st.riichi = {0:false,1:false,2:false,3:false};
+  st.ippatsu = {0:false,1:false,2:false,3:false};
+  st.drawnTile = {0:null,1:null,2:null,3:null};
+  st.drawnTile[st.dealer] = drawnForDealer;
+  st.turn = st.dealer;
+  st.phase = 'discard';
+  st.lastDiscard = null;
+  st.pendingClaims = null;
+  st.event = null;
+  st.canTsumo = checkTsumo(st, st.dealer, drawnForDealer);
+
+  await set(roomRef('state'), st);
+
+  // 親がAIなら処理
+  const pSnap = await get(roomRef('players/'+st.dealer));
+  if(pSnap.val()&&pSnap.val().isAI) {
+    await setTimeout2(800, () => processAISeat(st, st.dealer));
+  }
+}
+
+async function endGame(state) {
+  await update(roomRef('info'), { status:'finished' });
+  await set(roomRef('state/event'), { type:'gameEnd' });
+  const ranking = Object.entries(state.scores)
+    .map(([pid,score])=>({pid:parseInt(pid),score}))
+    .sort((a,b)=>b.score-a.score);
+  await set(roomRef('state/finalRanking'), ranking);
+}
+
+// ============================================================
+//  スコア計算ヘルパー
+// ============================================================
+function buildScoreCtx(state, pid, winTile, tsumo) {
+  const hand = [...state.hands[pid]];
+  const wi = hand.lastIndexOf(winTile);
+  if(wi>=0) hand.splice(wi,1);
+  const melds = (state.melds[pid]||[]).map(m=>({...m,tiles:[...m.tiles]}));
+  const isLast = state.wall.length <= state.wallPos;
+  const winds = [27,28,29,30];
+  const rel = (pid - (state.dealer||0) + 4)%4;
+  return {
+    hand, winTile, melds, tsumo,
+    riichi: state.riichi[pid]||false,
+    doubleRiichi: false,
+    ippatsu: state.ippatsu[pid]||false,
+    seatWind: winds[rel],
+    roundWind: state.roundWind||27,
+    dora: state.doraIndicators||[],
+    uraDora: [],
+    aka: 0,
+    haitei: isLast&&tsumo,
+    houtei: isLast&&!tsumo,
+    rinshan: false,
+    chankan: false,
+    isParent: pid===state.dealer,
+  };
+}
+
+function applyTsumoPayments(state, pid, r) {
+  const isParent = pid===state.dealer;
+  const pay = r.payments;
+  if(isParent) {
+    const each = pay.all || Math.ceil(r.total/3/100)*100;
+    for(let i=0;i<4;i++) if(i!==pid) { state.scores[i]-=each; state.scores[pid]+=each; }
+  } else {
+    for(let i=0;i<4;i++) if(i!==pid) {
+      const amt = i===state.dealer ? (pay.parent||0) : (pay.child||0);
+      state.scores[i]-=amt; state.scores[pid]+=amt;
+    }
+  }
+  state.scores[pid] += (state.riichiSticks||0)*1000;
+  state.riichiSticks = 0;
+}
+
+function serializeResult(r) {
+  return {
+    yaku: r.yaku.map(y=>({name:y.name,han:y.han})),
+    fu: r.fu, han: r.han, dora: r.dora,
+    total: r.total, label: r.label||'', yakuman: r.yakuman||false,
+    tsumo: r.tsumo
+  };
+}
+
+function removeFromHand(hand, tile, n) {
+  for(let k=0;k<n;k++) { const i=hand.indexOf(tile); if(i>=0) hand.splice(i,1); }
+  hand.sort((a,b)=>a-b);
+}
+
+function markLastDiscardCalled(state, fromPid) {
+  const ds = state.discards[fromPid];
+  if(ds&&ds.length>0) ds[ds.length-1].called=true;
+}
+
+function clearIppatsu(state) {
+  for(let i=0;i<4;i++) state.ippatsu[i]=false;
+}
+
+function setTimeout2(ms, fn) {
+  return new Promise(resolve => setTimeout(async()=>{ await fn(); resolve(); }, ms));
+}
+
+// ============================================================
+//  簡易AIロジック（ホスト側で実行）
+// ============================================================
+const MJAI = {
+  chooseDiscardSimple(hand, melds, isRiichi) {
+    if(isRiichi) return hand[hand.length-1]; // ツモ切り
+    const meldN = melds.length;
+    const base = MJ.shantenFromCounts(MJ.toCounts(hand), meldN);
+    let best=null, bestScore=-Infinity;
+    const tried=new Set();
+    const counts = MJ.toCounts(hand);
+    for(const tile of hand) {
+      if(tried.has(tile)) continue; tried.add(tile);
+      counts[tile]--;
+      const sh = MJ.shantenFromCounts(counts, meldN);
+      let score = -sh*1000;
+      if(MJ.isYaochu(tile)) score+=2;
+      if(score>bestScore){bestScore=score;best=tile;}
+      counts[tile]++;
+    }
+    return best!=null?best:hand[hand.length-1];
+  },
+  shouldClaim_simple(tile) {
+    // 役牌のみ鳴く簡易版
+    return tile>=31; // 白發中
+  },
+};
+
+// ============================================================
+//  画面描画
+// ============================================================
+const PLAYER_COLOR=['#e6c878','#4a90d9','#d9534f','#5cb85c'];
+const WIND_CH={27:'東',28:'南',29:'西',30:'北'};
+
+function renderGame() {
+  if(!gameState) return;
+  const s = gameState;
+
+  // 上部バー
+  const kName = (s.roundWind===27?'東':'南')+(s.kyoku||1)+'局';
+  $('#round-name').textContent = kName+(s.honba>0?' '+s.honba+'本場':'');
+  $('#remain').textContent = '残'+(s.wall?s.wall.length-(s.wallPos||0):0);
+  $('#sticks').textContent = (s.riichiSticks||0)>0?'供託'+(s.riichiSticks*1000):'';
+
+  // ドラ
+  const dm=$('#dora-mini'); dm.innerHTML='';
+  (s.doraIndicators||[]).forEach(t=>{ const te=tileEl(t,false); dm.appendChild(te); });
+
+  // 点数パネル
+  const winds=[27,28,29,30];
+  for(let i=0;i<4;i++) {
+    const pi=$('#pinfo'+i);
+    const rel=(i-(s.dealer||0)+4)%4;
+    pi.style.setProperty('--owner-color', PLAYER_COLOR[i]);
+    pi.querySelector('.wind').textContent = WIND_CH[winds[rel]]||'?';
+    // 名前はFirebaseから
+    getPlayerName(i).then(name => {
+      if(pi.querySelector('.nm')) pi.querySelector('.nm').textContent = name;
+    });
+    if(pi.querySelector('.sc')) pi.querySelector('.sc').textContent = s.scores?s.scores[i]:25000;
+    pi.classList.toggle('active', s.turn===i && s.phase!=='gameEnd');
+    pi.classList.toggle('riichi', s.riichi&&s.riichi[i]);
+  }
+
+  // 自分の手牌
+  renderMyHand(s);
+  // 相手の手牌（裏）
+  renderOpps(s);
+  // 河
+  renderRivers(s);
+  // 鳴き
+  renderMelds(s);
+
+  // イベント処理
+  if(s.event) {
+    handleEvent(s.event, s);
+  }
+
+  setTimeout(applyTileSizes, 50);
+}
+
+async function getPlayerName(pid) {
+  try {
+    const snap = await get(roomRef('players/'+pid));
+    return snap.val()?.name || 'AI';
+  } catch(e) { return 'AI'; }
+}
+
+function renderMyHand(s) {
+  const c=$('#my-hand'); c.innerHTML='';
+  const hand = s.hands?s.hands[myPid]:[];
+  if(!hand) return;
+  const drawn = s.drawnTile?s.drawnTile[myPid]:null;
+  const display = [...hand];
+  if(drawn!=null && s.turn===myPid) {
+    const di=display.lastIndexOf(drawn); if(di>=0) display.splice(di,1);
+  }
+  display.forEach(t=>{const te=tileEl(t,false);te.dataset.tile=t;c.appendChild(te);});
+  if(drawn!=null && s.turn===myPid) {
+    const te=tileEl(drawn,false);te.dataset.tile=drawn;te.classList.add('drawn');
+    te.style.marginLeft='8px'; c.appendChild(te);
+  }
+}
+
+function renderOpps(s) {
+  for(let i=1;i<=3;i++) {
+    const c=$('#opp'+i); c.innerHTML='';
+    const opp=(myPid+i)%4;
+    const n=(s.hands&&s.hands[opp])?s.hands[opp].length:13;
+    for(let k=0;k<n;k++) c.appendChild(tileEl(0,true));
+  }
+}
+
+function renderRivers(s) {
+  for(let i=0;i<4;i++) {
+    const c=$('#river'+i); c.innerHTML='';
+    (s.discards&&s.discards[i]||[]).forEach(d=>{
+      const te=tileEl(d.tile,false);
+      if(d.called) te.classList.add('called');
+      if(d.riichi) te.classList.add('riichi-discard');
+      c.appendChild(te);
+    });
+  }
+}
+
+function renderMelds(s) {
+  for(let i=0;i<4;i++) {
+    const c=$('#melds'+i); c.innerHTML='';
+    (s.melds&&s.melds[i]||[]).forEach(m=>{
+      const md=el('div','meld');
+      md.style.setProperty('--owner-color',PLAYER_COLOR[i]);
+      if(m.type==='ankan') {
+        [0,m.tiles[0],m.tiles[0],0].forEach((t,idx)=>md.appendChild(tileEl(t,idx===0||idx===3)));
+      } else {
+        let marked=false;
+        m.tiles.forEach(t=>{
+          const te=tileEl(t,false); te.classList.add('called-tile');
+          if(!marked&&t===m.calledTile){te.classList.add('claimed-tile');marked=true;}
+          md.appendChild(te);
+        });
+      }
+      c.appendChild(md);
+    });
+  }
+}
+
+// ============================================================
+//  自分のターンUI
+// ============================================================
+function showMyTurnUI() {
+  const s = gameState;
+  if(!s || s.turn !== myPid || s.phase !== 'discard') return;
+  const acts = $('#actions'); acts.innerHTML='';
+  busy = false;
+
+  // ツモ和了
+  if(s.canTsumo) {
+    const b=el('button','act-btn btn-tsumo'); b.textContent='ツモ';
+    b.onclick=()=>{ busy=true; acts.innerHTML=''; sendAction('tsumo',{}); };
+    acts.appendChild(b);
+  }
+  // リーチ
+  const melds=(s.melds&&s.melds[myPid])||[];
+  const menzen=melds.every(m=>m.type==='ankan');
+  if(menzen&&!(s.riichi&&s.riichi[myPid])&&(s.scores&&s.scores[myPid]>=1000)) {
+    const waits=MJ.waits(s.hands[myPid],melds.length);
+    if(waits.length>0&&(s.wall.length-(s.wallPos||0))>=4) {
+      const b=el('button','act-btn btn-riichi'); b.textContent='リーチ';
+      b.onclick=()=>{ busy=true; acts.innerHTML=''; sendAction('riichi',{});
+        toast('リーチ！'); setTimeout(()=>{ if(gameState&&gameState.turn===myPid) { acts.innerHTML=''; enableHandClick(); } },500);
+      };
+      acts.appendChild(b);
+    }
+  }
+  enableHandClick();
+}
+
+function enableHandClick() {
+  $('#actions').innerHTML='';
+  [...$('#my-hand').children].forEach(te=>{
+    te.onclick=()=>{
+      if(busy) return;
+      const tile=parseInt(te.dataset.tile,10);
+      busy=true;
+      Sound.tap();
+      sendAction('discard',{tile});
+    };
+  });
+}
+
+// 鳴き・ロン選択UI
+function showClaimUI(claims, fromPid, tile) {
+  const acts=$('#actions'); acts.innerHTML='';
+  const hasMyRon = claims.ron&&claims.ron.find(r=>r.pid===myPid);
+  const hasMyPon = claims.pon&&claims.pon.find(c=>c.pid===myPid);
+  const hasMyKan = claims.kan&&claims.kan.find(c=>c.pid===myPid);
+  const hasMychi = claims.chi&&claims.chi.find(c=>c.pid===myPid);
+
+  if(hasMyRon) {
+    const b=el('button','act-btn btn-ron'); b.textContent='ロン';
+    b.onclick=()=>{ busy=true; acts.innerHTML=''; sendAction('ron',{}); };
+    acts.appendChild(b);
+  }
+  if(hasMyPon) {
+    const b=el('button','act-btn btn-pon'); b.textContent='ポン';
+    b.onclick=()=>{ busy=true; acts.innerHTML=''; sendAction('pon',{tile}); };
+    acts.appendChild(b);
+  }
+  if(hasMychi) {
+    hasMychi.seqs.forEach((seq,i)=>{
+      const b=el('button','act-btn btn-chi');
+      b.textContent='チー'+(hasMychi.seqs.length>1?(i+1):'');
+      b.onclick=()=>{ busy=true; acts.innerHTML=''; sendAction('chi',{tile,seq}); };
+      acts.appendChild(b);
+    });
+  }
+  const skip=el('button','act-btn skip'); skip.textContent='スキップ';
+  skip.onclick=()=>{ acts.innerHTML=''; sendAction('skip',{}); };
+  acts.appendChild(skip);
+}
+
+// ============================================================
+//  イベント処理（全プレイヤー共通）
+// ============================================================
+let lastEventTs = null;
+
+function handleEvent(ev, s) {
+  if(!ev || ev === lastEventTs) return;
+  lastEventTs = ev;
+
+  switch(ev.type) {
+    case 'tsumo':
+    case 'ron':
+      showKyokuResult(ev, s, ev.type);
+      break;
+    case 'ryuukyoku':
+      showRyuukyoku(ev, s);
+      break;
+    case 'gameEnd':
+      showFinalResult(s);
+      break;
+  }
+}
+
+function toast(text) {
+  const t=$('#toast'); t.textContent=text; t.classList.remove('show');
+  void t.offsetWidth; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),900);
+}
+
+function showKyokuResult(ev, s, kind) {
+  Sound.win();
+  const ov=$('#overlay'); const card=$('#result-card');
+  card.innerHTML='';
+  const r=ev.result;
+  if(!r) return;
+  getPlayerName(ev.pid).then(name=>{
+    const h2=el('h2'); h2.textContent=(kind==='tsumo'?'ツモ':'ロン');
+    const wn=el('div','winner-name'); wn.textContent=name+'（'+WIND_CH[s.roundWind]+s.kyoku+'局）';
+    card.appendChild(h2); card.appendChild(wn);
+    const yl=el('div','yaku-list');
+    (r.yaku||[]).forEach(y=>{
+      const row=el('div','yaku-row');
+      const nm=el('span'); nm.textContent=y.name;
+      const han=el('span','han'); han.textContent=(y.han>=13?'役満':y.han+'翻');
+      row.appendChild(nm); row.appendChild(han); yl.appendChild(row);
+    });
+    if(r.dora>0){const row=el('div','yaku-row');const nm=el('span');nm.textContent='ドラ';const han=el('span','han');han.textContent=r.dora+'翻';row.appendChild(nm);row.appendChild(han);yl.appendChild(row);}
+    card.appendChild(yl);
+    const sc=el('div','result-score'); sc.textContent=(r.total||0).toLocaleString()+'点';
+    const hf=el('div','result-hanfu'); hf.textContent=(r.label?r.label+' ':'')+(r.yakuman?'':(r.han+'翻 '+r.fu+'符'));
+    card.appendChild(sc); card.appendChild(hf);
+    const btn=el('button','next-btn'); btn.textContent='次へ';
+    btn.onclick=()=>{ ov.classList.remove('show'); lastEventTs=null; if(isHost) sendAction('proceed',{}); };
+    card.appendChild(btn);
+    ov.classList.add('show');
+  });
+}
+
+function showRyuukyoku(ev, s) {
+  const ov=$('#overlay'); const card=$('#result-card');
+  card.innerHTML='';
+  const h2=el('h2'); h2.textContent='流局';
+  card.appendChild(h2);
+  const t=el('div'); t.style.cssText='color:#cfe3d8;font-size:14px;margin:10px 0;';
+  const tNames=(ev.tenpai||[]).map(i=>WIND_CH[(i-(s.dealer||0)+4)%4+27]||i);
+  t.textContent=tNames.length?'テンパイ: '+tNames.join('、'):'全員ノーテン';
+  card.appendChild(t);
+  const btn=el('button','next-btn'); btn.textContent='次へ';
+  btn.onclick=()=>{ ov.classList.remove('show'); lastEventTs=null; if(isHost) sendAction('proceed',{}); };
+  card.appendChild(btn);
+  ov.classList.add('show');
+}
+
+function showFinalResult(s) {
+  showScreen('result');
+  const ranking=s.finalRanking||[];
+  const div=$('#final-ranking'); div.innerHTML='';
+  ranking.forEach((p,i)=>{
+    getPlayerName(p.pid).then(name=>{
+      const row=el('div','rank-row'+(i===0?' rank-1':''));
+      const rk=el('span','rk'); rk.textContent=(i+1)+'位';
+      const rnm=el('span','rnm'); rnm.textContent=name;
+      const rsc=el('span','rsc'); rsc.textContent=p.score.toLocaleString();
+      row.appendChild(rk);row.appendChild(rnm);row.appendChild(rsc);
+      div.appendChild(row);
+    });
+  });
+}
+
+// 点数推移テーブル
+function updateScoreTable() {
+  if(!gameState) return;
+  const s = gameState;
+  const body=$('#score-table-body'); body.innerHTML='';
+  for(let i=0;i<4;i++) {
+    getPlayerName(i).then(name=>{
+      const row=el('div','score-table-row');
+      const nm=el('span','stn'); nm.textContent=name;
+      const sc=el('span','stv'); sc.textContent=(s.scores&&s.scores[i]||0).toLocaleString();
+      row.appendChild(nm);row.appendChild(sc);
+      body.appendChild(row);
+    });
+  }
+  $('#score-table').classList.add('show');
+}
+
+// ============================================================
+//  ホスト: proceedを受け取ったら次局
+// ============================================================
+// (processAction内でhandleされる)
+async function hostProceed() {
+  const sSnap = await get(roomRef('state'));
+  if(sSnap.exists()) {
+    await proceedNextKyoku(sSnap.val());
+  }
+}
+
+// ============================================================
+//  UI イベントハンドラ初期化
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  // Firebase初期化（コード内のfirebaseConfigを使用）
+  initFirebase();
+
+  // ルーム作成
+  $('#create-room-btn').onclick = async () => {
+    if(!db) { showError('title','Firebase接続エラー。コード内のfirebaseConfigを確認してください'); return; }
+    Sound.resume();
+    await createRoom();
+  };
+
+  // ルーム参加
+  $('#join-room-btn').onclick = () => {
+    const ja=$('#join-area');
+    ja.style.display = ja.style.display==='none'?'block':'none';
+  };
+  $('#do-join-btn').onclick = async () => {
+    if(!db) { showError('title','Firebase接続エラー。コード内のfirebaseConfigを確認してください'); return; }
+    Sound.resume();
+    await joinRoom();
+  };
+  $('#room-id-input').addEventListener('input', e => {
+    let v=e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g,'');
+    if(v.length>3&&v[3]!=='-') v=v.slice(0,3)+'-'+v.slice(3);
+    e.target.value=v.slice(0,7);
+  });
+
+  // ロビー
+  $('#copy-room-id').onclick = () => {
+    navigator.clipboard.writeText(roomId).then(()=>{ $('#copy-room-id').textContent='コピー済'; setTimeout(()=>$('#copy-room-id').textContent='コピー',1500); });
+  };
+  $('#start-game-btn').onclick = async () => {
+    if(!isHost||!db) return;
+    const mode=$('#mode-select').value;
+    await update(roomRef('info'),{mode,status:'playing'});
+  };
+  $('#mode-select').onchange = async () => {
+    if(isHost) await update(roomRef('info'),{mode:$('#mode-select').value});
+  };
+  $('#leave-lobby-btn').onclick = () => {
+    off(roomRef('players'));
+    off(roomRef('info/status'));
+    roomId=null; isHost=false; myPid=null;
+    showScreen('title');
+  };
+
+  // ゲーム中
+  $('#leave-game-btn').onclick = () => {
+    if(confirm('対局を途中で終了しますか？\n（あなたの席はAIが引き継ぎます）')) {
+      off(roomRef('state'));
+      off(roomRef('actions'));
+      showScreen('title');
+    }
+  };
+  $('#sound-btn').onclick = () => {
+    soundEnabled=!soundEnabled;
+    $('#sound-btn').textContent=soundEnabled?'🔊':'🔇';
+  };
+
+  // 結果画面
+  $('#rematch-btn').onclick = async () => {
+    if(!isHost) { alert('ホストのみ再戦を開始できます'); return; }
+    await update(roomRef('info'),{status:'waiting'});
+    showScreen('lobby'); showLobby();
+  };
+  $('#to-lobby-btn').onclick = () => showScreen('lobby');
+  $('#to-title-btn').onclick = () => { roomId=null; showScreen('title'); };
+
+  showScreen('title');
+});
+
+// ============================================================
+//  エラーヘルパー
+// ============================================================
+function showError(screen, msg) {
+  const e=$('#'+screen+'-error');
+  if(e) { e.textContent=msg; e.style.display='block'; setTimeout(()=>e.style.display='none',4000); }
+}
+
+</script>
+
+<!-- 麻雀エンジン読み込み -->
+<script src="engine.js"></script>
+
+</body>
+</html>
